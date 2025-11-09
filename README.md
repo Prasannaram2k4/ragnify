@@ -16,9 +16,9 @@ Below are sequential screenshots illustrating the typical user flow: upload PDFs
 
 | Step | Preview |
 |------|---------|
-| 1. Upload UI | ![Step 1 – Upload PDFs](images/1.png) |
-| 2. Ingest Triggered | ![Step 2 – Ingest Started](images/2.png) |
-| 3. Processing Chunks | ![Step 3 – Chunking](images/3.png) |
+| 1. Initial UI | ![Step 1 – Upload PDFs](images/1.png) |
+| 2. Upload UI| ![Step 2 – Ingest Started](images/2.png) |
+| 3. Ingest Triggered  | ![Step 3 – Chunking](images/3.png) |
 | 4. Embedding Progress | ![Step 4 – Embeddings](images/4.png) |
 | 5. Building FAISS Index | ![Step 5 – Index Build](images/5.png) |
 | 6. Index Ready Indicator | ![Step 6 – Ready State](images/6.png) |
