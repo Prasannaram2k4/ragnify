@@ -1,0 +1,14 @@
+streamlit
+langchain>=0.0.300
+transformers
+sentence-transformers
+faiss-cpu
+python-dotenv
+ollama
+pypdf
+tqdm
+uvicorn
+requests
+openai
+anthropic
+huggingface-hub>=0.34,<1.0

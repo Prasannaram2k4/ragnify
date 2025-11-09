@@ -1,0 +1,22 @@
+body { font-family: Inter, Arial, sans-serif; margin:0; padding:0; background:#f5f7fb; color:#0f172a; }
+.container { max-width:960px; margin:24px auto; padding:20px; background:white; border-radius:12px; box-shadow:0 6px 24px rgba(15,23,42,0.08); }
+.query { width:100%; font-size:14px; padding:10px; border-radius:8px; border:1px solid #e6eef8; }
+.controls { margin-top:12px; display:flex; gap:12px; align-items:center; }
+.btn { background:#0b69ff; color:white; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; }
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+.loading { color:#334155; font-size:14px; }
+.result, .retrieved { margin-top:18px; }
+.answer { background:#0f172a10; padding:12px; border-radius:8px; white-space:pre-wrap; }
+.chunk { padding:10px; border-radius:8px; background:#f8fafc; margin-bottom:8px; }
+
+/* Ingest progress */
+.ingest-progress { margin-top:10px; }
+.ingest-progress .bar { background:#e6eef8; border-radius:6px; overflow:hidden; height:10px; }
+.ingest-progress .bar span { display:block; height:10px; background:#0b69ff; transition:width .3s ease; }
+.ingest-progress .meta { margin-top:6px; display:flex; gap:8px; align-items:center; color:#475569; font-size:12px; }
+.badge { padding:2px 8px; border-radius:999px; background:#e2e8f0; text-transform:capitalize; }
+.badge.done { background:#d1fae5; color:#065f46; }
+.badge.error { background:#fee2e2; color:#991b1b; }
+.badge.online { background:#d1fae5; color:#065f46; margin-left:8px; font-size:12px; }
+.badge.offline { background:#fee2e2; color:#991b1b; margin-left:8px; font-size:12px; }
+.note { margin-top:4px; font-size:12px; color:#64748b; }
