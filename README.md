@@ -26,7 +26,6 @@ Below are sequential screenshots illustrating the typical user flow: upload PDFs
 | 8. Retrieval Results | ![Step 8 – Retrieved Context](images/8.png) |
 | Final. Answer + Context | ![Final – Answer Display](images/Final.png) |
 
-> If images fail to render on GitHub, confirm the PNG files were committed under `images/` and that case‑sensitive filenames match exactly.
 
 ## Quickstart (local dev)
 
