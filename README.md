@@ -21,7 +21,7 @@ Below are sequential screenshots illustrating the typical user flow: upload PDFs
 | 3. Choose File | ![Step 3 – Chunking](images/3.png) |
 | 4. Ingest Triggered | ![Step 4 – Embeddings](images/4.png) |
 | 5. Building FAISS Index | ![Step 5 – Index Build](images/5.png) |
-| 6. Index Ready Indicator | ![Step 6 – Ready State](images/6.png) |
+| 6. Type Question | ![Step 6 – Ready State](images/6.png) |
 | 7. Asking a Question | ![Step 7 – Query Input](images/7.png) |
 | 8. Retrieval Results | ![Step 8 – Retrieved Context](images/8.png) |
 | Final. Answer + Context | ![Final – Answer Display](images/Final.png) |
