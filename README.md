@@ -1,4 +1,4 @@
-# RAG Starter — FastAPI + React + FAISS (Ollama / OpenAI / Anthropic / Hugging Face)
+# Ragnify — AI Document Q&A System (RAG + Hugging Face + FAISS)
 
 A clean, batteries-included RAG (Retrieval‑Augmented Generation) template:
 - FastAPI backend with swappable LLM providers (Ollama, OpenAI, Anthropic, Hugging Face)
@@ -9,6 +9,24 @@ A clean, batteries-included RAG (Retrieval‑Augmented Generation) template:
 “Use anything with a little tweak in code” is the idea here: swap providers via env, or extend one file to add more.
 
 ---
+ 
+## Screenshots
+
+Below are sequential screenshots illustrating the typical user flow: upload PDFs, ingest progress, and ask a question to retrieve an answer plus retrieved context chunks.
+
+| Step | Preview |
+|------|---------|
+| 1. Upload UI | ![Step 1 – Upload PDFs](images/1.png) |
+| 2. Ingest Triggered | ![Step 2 – Ingest Started](images/2.png) |
+| 3. Processing Chunks | ![Step 3 – Chunking](images/3.png) |
+| 4. Embedding Progress | ![Step 4 – Embeddings](images/4.png) |
+| 5. Building FAISS Index | ![Step 5 – Index Build](images/5.png) |
+| 6. Index Ready Indicator | ![Step 6 – Ready State](images/6.png) |
+| 7. Asking a Question | ![Step 7 – Query Input](images/7.png) |
+| 8. Retrieval Results | ![Step 8 – Retrieved Context](images/8.png) |
+| Final. Answer + Context | ![Final – Answer Display](images/Final.png) |
+
+> If images fail to render on GitHub, confirm the PNG files were committed under `images/` and that case‑sensitive filenames match exactly.
 
 ## Quickstart (local dev)
 
