@@ -1,106 +1,104 @@
 import os
+import re
+from typing import List, Tuple
+
 import requests
-from fastapi import HTTPException
-import openai
-from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+
+SYSTEM = 'Answer the question using only the provided context. If the answer is not in the context, say "I don\'t know."'
+_STOP = {'the', 'a', 'an', 'is', 'of', 'to', 'in', 'and', 'what', 'how', 'does', 'do', 'are', 'it'}
 
 
-
-def call_ollama(prompt, max_tokens=512):
-    OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'phi3:instruct')
-    try:
-        resp = requests.post('http://localhost:11434/api/generate', json={
-            'model': OLLAMA_MODEL,
-            'prompt': prompt,
-            'max_tokens': max_tokens
-        }, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        if isinstance(data, dict):
-            return data.get('choices', [{}])[0].get('message', {}).get('content', '') or data.get('text', '')
-        return str(data)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Ollama error: {e}')
+class LLMError(Exception):
+    pass
 
 
-def call_openai(prompt, max_tokens=512, model='gpt-4o-mini'):
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
-    if not OPENAI_API_KEY:
-        raise HTTPException(status_code=500, detail='OpenAI API key is not configured')
-    try:
-        openai.api_key = OPENAI_API_KEY
-        resp = openai.ChatCompletion.create(
-            model=model,
-            messages=[{'role': 'system', 'content': 'You are a helpful assistant.'},
-                      {'role': 'user', 'content': prompt}],
-            max_tokens=max_tokens,
-            temperature=0.0
-        )
-        return resp['choices'][0]['message']['content']
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'OpenAI error: {e}')
+def _chat(url: str, key: str, model: str, prompt: str, max_tokens: int) -> str:
+    resp = requests.post(
+        url,
+        headers={'Authorization': f'Bearer {key}'},
+        json={
+            'model': model,
+            'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': prompt}],
+            'max_tokens': max_tokens,
+            'temperature': 0.0,
+        },
+        timeout=45,
+    )
+    resp.raise_for_status()
+    return resp.json()['choices'][0]['message']['content'].strip()
 
 
-def call_anthropic(prompt, max_tokens=512, model='claude-2.1'):
-    ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=500, detail='Anthropic API key is not configured')
-    try:
-        client = Anthropic(api_key=ANTHROPIC_API_KEY)
-        full_prompt = HUMAN_PROMPT + prompt + AI_PROMPT
-        resp = client.completions.create(model=model, prompt=full_prompt, max_tokens_to_sample=max_tokens)
-        return resp['completion']
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Anthropic error: {e}')
+def call_openai(prompt: str, max_tokens: int = 512) -> str:
+    key = os.getenv('OPENAI_API_KEY', '')
+    if not key:
+        raise LLMError('OPENAI_API_KEY not configured')
+    return _chat('https://api.openai.com/v1/chat/completions', key,
+                 os.getenv('OPENAI_MODEL', 'gpt-4o-mini'), prompt, max_tokens)
 
 
-def call_huggingface(prompt, max_tokens=512):
-    HF_API_TOKEN = os.getenv('HF_API_TOKEN', '')
-    # Switch to a smaller widely-available instruction model; allow override via env
-    HF_MODEL = os.getenv('HF_MODEL', 'google/flan-t5-small')
-    if not HF_API_TOKEN:
-        raise HTTPException(status_code=500, detail='Hugging Face API token not configured')
-    headers = {'Authorization': f'Bearer {HF_API_TOKEN}'}
-    payload = {
-        'inputs': prompt,
-        'parameters': {'max_new_tokens': max_tokens, 'temperature': 0.0},
-        'options': {'wait_for_model': True}
-    }
-    attempts = [
-        f'https://api-inference.huggingface.co/models/{HF_MODEL}',
-        f'https://router.huggingface.co/hf-inference/models/{HF_MODEL}',
-    ]
-    last_err = None
-    for url in attempts:
+def call_huggingface(prompt: str, max_tokens: int = 512) -> str:
+    key = os.getenv('HF_API_TOKEN', '')
+    if not key:
+        raise LLMError('HF_API_TOKEN not configured')
+    return _chat('https://router.huggingface.co/v1/chat/completions', key,
+                 os.getenv('HF_MODEL', 'Qwen/Qwen2.5-7B-Instruct'), prompt, max_tokens)
+
+
+def call_anthropic(prompt: str, max_tokens: int = 512) -> str:
+    key = os.getenv('ANTHROPIC_API_KEY', '')
+    if not key:
+        raise LLMError('ANTHROPIC_API_KEY not configured')
+    resp = requests.post(
+        'https://api.anthropic.com/v1/messages',
+        headers={'x-api-key': key, 'anthropic-version': '2023-06-01'},
+        json={
+            'model': os.getenv('ANTHROPIC_MODEL', 'claude-3-5-haiku-latest'),
+            'system': SYSTEM,
+            'max_tokens': max_tokens,
+            'messages': [{'role': 'user', 'content': prompt}],
+        },
+        timeout=45,
+    )
+    resp.raise_for_status()
+    return ''.join(b.get('text', '') for b in resp.json()['content']).strip()
+
+
+def resolve_provider() -> str:
+    p = os.getenv('LLM_PROVIDER', 'auto').lower()
+    if p != 'auto':
+        return p
+    if os.getenv('OPENAI_API_KEY'):
+        return 'openai'
+    if os.getenv('ANTHROPIC_API_KEY'):
+        return 'anthropic'
+    if os.getenv('HF_API_TOKEN'):
+        return 'huggingface'
+    return 'extractive'
+
+
+def extractive_answer(question: str, chunks: List[str]) -> str:
+    """Key-free fallback: return the sentences from retrieved chunks that best overlap the question."""
+    q_terms = set(re.findall(r'[a-z0-9]+', question.lower())) - _STOP
+    sentences = [s.strip() for c in chunks for s in re.split(r'(?<=[.!?])\s+|\n+', c) if len(s.strip()) > 20]
+    scored = sorted(
+        ((len(q_terms & set(re.findall(r'[a-z0-9]+', s.lower()))), s) for s in sentences),
+        key=lambda x: x[0], reverse=True,
+    )
+    best = [s for score, s in scored[:3] if score > 0]
+    return ' '.join(best) if best else "I don't know."
+
+
+def generate(question: str, chunks: List[str]) -> Tuple[str, str]:
+    """Return (answer, provider_used); falls back to an extractive answer if the LLM fails."""
+    context = '\n\n'.join(f'[{i + 1}] {c}' for i, c in enumerate(chunks))
+    prompt = f'Context:\n{context}\n\nQuestion: {question}\nAnswer:'
+    fn = {'openai': call_openai, 'anthropic': call_anthropic,
+          'huggingface': call_huggingface}.get(resolve_provider())
+    if fn:
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, dict):
-                    # OpenAI-like or single dict
-                    if 'choices' in data and data['choices']:
-                        choice = data['choices'][0]
-                        return choice.get('message', {}).get('content') or choice.get('text', '') or ''
-                    if 'generated_text' in data:
-                        return data['generated_text']
-                    # Some models return {'error': ...}
-                    if 'error' in data:
-                        last_err = data['error']
-                        continue
-                if isinstance(data, list) and data and isinstance(data[0], dict):
-                    for key in ('generated_text', 'text'):
-                        if key in data[0]:
-                            return data[0][key]
-                    return str(data[0])
-                return str(data)
-            # For 404/410 try next endpoint
-            if resp.status_code in (404, 410):
-                last_err = resp.text
-                continue
-            # Raise for other failures
-            resp.raise_for_status()
-        except Exception as e:
-            last_err = str(e)
-            continue
-    # Final fallback: return empty string instead of raising to let caller degrade gracefully
-    return ''
+            ans = fn(prompt)
+            if ans:
+                return ans, resolve_provider()
+        except Exception:
+            pass
+    return extractive_answer(question, chunks), 'extractive'

@@ -17,4 +17,5 @@ faiss_index/
 *.pyc
 venv/
 node_modules/
-.env.example
+.env.example.vercel
+.pytest_cache/

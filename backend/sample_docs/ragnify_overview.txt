@@ -1,0 +1,11 @@
+Ragnify is a minimal end-to-end Retrieval-Augmented Generation (RAG) demo. A user uploads PDF or text documents, the backend splits them into overlapping chunks of about 800 characters, and each chunk is converted into a vector embedding.
+
+When a question arrives, the question is embedded with the same model and compared to every chunk using cosine similarity. The top-k most similar chunks are selected as context.
+
+The selected chunks are placed into a prompt together with the question and sent to a large language model. The model is instructed to answer only from the context and to say "I don't know" when the answer is not present.
+
+Ragnify supports several language model providers: OpenAI, Anthropic, and Hugging Face. If no provider key is configured, it falls back to an extractive answer that returns the most relevant sentences from the retrieved chunks.
+
+Embeddings use the Hugging Face Inference API when HF_API_TOKEN is set. Otherwise a deterministic hashing embedding is used, so the demo works with no API keys at all.
+
+Ragnify is deployed on Vercel. The React frontend is built with Vite and served statically, while the FastAPI backend runs as a Python serverless function under the /api path. Because serverless functions are stateless, uploaded documents are chunked on the server and kept by the browser, which sends them back with each question.

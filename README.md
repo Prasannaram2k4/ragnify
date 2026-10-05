@@ -1,3 +1,13 @@
+---
+title: Ragnify
+emoji: 📚
+colorFrom: blue
+colorTo: indigo
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+
 # Ragnify — AI Document Q&A System (RAG + Hugging Face + FAISS)
 
 A clean, batteries-included RAG (Retrieval‑Augmented Generation) template:
@@ -35,7 +45,7 @@ Prereqs: Python 3.10+, Node 18+, macOS/Linux/WSL.
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-local.txt   # local extras (Streamlit, ingest)
 ```
 
 2) Set env (copy and edit as needed)
@@ -183,6 +193,18 @@ docker compose up --build
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8000/health
 - Volumes mount `./data` and `./faiss_index` for persistence
+
+---
+
+## Deploy to Vercel (live demo)
+
+`vercel.json` builds the Vite frontend and serves the FastAPI backend (`api/index.py`) as a serverless function under `/api`.
+
+- Serverless functions have no persistent disk, so the live demo builds an **in-memory FAISS index** (`IndexFlatIP`, cosine) per request: `/api/upload` returns chunks, the browser keeps them, and `/api/query` embeds, searches with FAISS, and generates the answer. A bundled sample document (`backend/sample_docs/`) works out of the box.
+- The persistent on-disk index (`ingest_and_index.py` → `faiss_index/`) is still used automatically when present (local/Docker); results are merged.
+- Vercel installs `requirements.txt` (slim: FAISS, numpy, pypdf, requests). Streamlit/ingest extras are in `requirements-local.txt`.
+- With no keys set, hash embeddings and extractive answers are used. Set `HF_API_TOKEN`, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in Vercel for real embeddings/LLM answers. Uploads are limited to ~4 MB (Vercel request limit).
+- `/api/ingest_status` is not needed on Vercel (indexing is instant per request).
 
 ---
 

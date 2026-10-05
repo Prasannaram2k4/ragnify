@@ -1,158 +1,111 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import './styles.css'
 
-export default function App(){
+const API = import.meta.env.VITE_BACKEND_URL || '/api'
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+const headers = API_KEY ? { 'X-API-KEY': API_KEY } : {}
+
+async function readJson(res) {
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.detail || res.statusText)
+  return data
+}
+
+export default function App() {
   const [q, setQ] = useState('')
   const [ans, setAns] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [provider, setProvider] = useState('')
   const [retrieved, setRetrieved] = useState([])
+  const [loading, setLoading] = useState(false)
   const [files, setFiles] = useState([])
-  const [uploadStatus, setUploadStatus] = useState('')
-  const [ingestInfo, setIngestInfo] = useState({status:'idle', processed_chunks:0, total_chunks:0, message:''})
-  const pollRef = useRef(null)
-  const [backendOk, setBackendOk] = useState(null) // null=unknown, true=ok, false=down
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
-  const apiKey = import.meta.env.VITE_API_KEY || ''
+  const [docs, setDocs] = useState([]) // [{name, chunks}]
+  const [chunks, setChunks] = useState([]) // [{source, text}] kept client-side (serverless backend is stateless)
+  const [status, setStatus] = useState('')
+  const [health, setHealth] = useState(null)
 
-  async function ask(){
+  useEffect(() => {
+    fetch(`${API}/health`).then(readJson).then(setHealth).catch(() => setHealth(false))
+  }, [])
+
+  async function ask() {
     setLoading(true)
     setAns('')
-    try{
-      const res = await fetch(`${backendUrl}/query`, {
+    setRetrieved([])
+    try {
+      const res = await fetch(`${API}/query`, {
         method: 'POST',
-        headers: {
-          'Content-Type':'application/json',
-          ...(apiKey ? {'X-API-KEY': apiKey} : {})
-        },
-        body: JSON.stringify({question: q, top_k: 4})
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ question: q, top_k: 4, chunks }),
       })
-      if(!res.ok){
-        const err = await res.json()
-        setAns('Error: ' + (err.detail || res.statusText))
-        setLoading(false)
-        return
-      }
-      const data = await res.json()
-      setAns(data.answer || '(No answer returned — showing extractive fallback)')
+      const data = await readJson(res)
+      setAns(data.answer)
+      setProvider(data.provider)
       setRetrieved(data.retrieved || [])
-    }catch(e){
-      setAns('Network error: ' + e.message)
-    }finally{
+    } catch (e) {
+      setAns('Error: ' + e.message)
+    } finally {
       setLoading(false)
     }
   }
 
-  function onFileChange(e){
-    setFiles(Array.from(e.target.files))
-  }
-
-  async function upload(){
-    if(!files.length){
-      setUploadStatus('Select PDF files first.')
-      return
-    }
-    setUploadStatus('Uploading...')
+  async function upload() {
+    setStatus('Uploading and indexing...')
     const form = new FormData()
-    files.forEach(f => form.append('files', f))
-    try{
-      const res = await fetch(`${backendUrl}/upload`, {
-        method: 'POST',
-        headers: {
-          ...(apiKey ? {'X-API-KEY': apiKey} : {})
-        },
-        body: form
-      })
-      const data = await res.json()
-      if(!res.ok){
-        setUploadStatus('Upload error: ' + (data.detail || res.statusText))
-        return
-      }
-      setUploadStatus(`Uploaded: ${data.uploaded.join(', ')} (ingest started)`) 
-      // begin polling ingest status
-      startPollingIngest()
-    }catch(e){
-      setUploadStatus('Network error: ' + e.message)
+    files.forEach((f) => form.append('files', f))
+    try {
+      const data = await readJson(await fetch(`${API}/upload`, { method: 'POST', headers, body: form }))
+      setDocs((d) => [...d, ...data.files])
+      setChunks((c) => [...c, ...data.chunks])
+      setFiles([])
+      setStatus(`Indexed ${data.chunks.length} chunks from ${data.files.length} file(s).`)
+    } catch (e) {
+      setStatus('Upload error: ' + e.message)
     }
   }
 
-  function startPollingIngest(){
-    stopPollingIngest()
-    pollRef.current = setInterval(async () => {
-      try{
-        const res = await fetch(`${backendUrl}/ingest_status`, {
-          headers: {
-            ...(apiKey ? {'X-API-KEY': apiKey} : {})
-          }
-        })
-        if(!res.ok) return
-        const data = await res.json()
-        setIngestInfo(data)
-        if(data.status === 'done' || data.status === 'error'){
-          stopPollingIngest()
-          setUploadStatus(data.status === 'done' ? 'Ingest completed. Index is ready.' : `Ingest error: ${data.message || ''}`)
-        }
-      }catch{
-        // ignore transient errors
-      }
-    }, 1000)
+  function clearDocs() {
+    setDocs([])
+    setChunks([])
+    setStatus('')
   }
-
-  function stopPollingIngest(){
-    if(pollRef.current){
-      clearInterval(pollRef.current)
-      pollRef.current = null
-    }
-  }
-
-  useEffect(()=>{
-    // health ping
-    const ping = async () => {
-      try {
-        const r = await fetch(`${backendUrl}/health`)
-        setBackendOk(r.ok)
-      } catch {
-        setBackendOk(false)
-      }
-    }
-    ping()
-    const t = setInterval(ping, 5000)
-    return () => { clearInterval(t); stopPollingIngest() }
-  },[])
 
   return (
     <div className="container">
-  <h1>RAG Q&amp;A {backendOk===true && <span className="badge online">backend: online</span>} {backendOk===false && <span className="badge offline">backend: down</span>}</h1>
-      <textarea className="query" rows={4} value={q} onChange={e=>setQ(e.target.value)} placeholder="Ask a question about your docs" />
+      <h1>
+        Ragnify RAG Q&amp;A
+        {health && <span className="badge online">backend: online ({health.provider})</span>}
+        {health === false && <span className="badge offline">backend: down</span>}
+      </h1>
+      <p className="note">
+        Ask about the built-in sample document, or upload your own PDF/TXT/MD files (up to 4 MB total).
+      </p>
+      <textarea className="query" rows={3} value={q} onChange={(e) => setQ(e.target.value)}
+        placeholder="e.g. How does Ragnify choose which chunks to use?" />
       <div className="controls">
-        <button className="btn" onClick={ask} disabled={loading||!q}>Ask</button>
-        {loading && <span className="loading">Loading…</span>}
+        <button className="btn" onClick={ask} disabled={loading || !q.trim()}>Ask</button>
+        {loading && <span className="loading">Thinking…</span>}
       </div>
+
       <section className="upload">
-        <h2>Upload PDFs</h2>
-        <input type="file" accept="application/pdf" multiple onChange={onFileChange} />
-        <button className="btn" onClick={upload} disabled={!files.length}>Upload & Ingest</button>
-        {uploadStatus && <p className="status">{uploadStatus}</p>}
-        {(ingestInfo?.total_chunks || 0) > 0 && (
-          <div className="ingest-progress">
-            <div className="bar"><span style={{width: `${Math.min(100, Math.round(100*(ingestInfo.processed_chunks||0)/Math.max(1,(ingestInfo.total_chunks||0))))}%`}} /></div>
-            <div className="meta">
-              <span>{ingestInfo.processed_chunks}/{ingestInfo.total_chunks}</span>
-              <span className={`badge ${ingestInfo.status}`}>{ingestInfo.status}</span>
-            </div>
-            {ingestInfo.message && <div className="note">{ingestInfo.message}</div>}
-          </div>
-        )}
+        <h2>Documents</h2>
+        <input type="file" accept=".pdf,.txt,.md" multiple
+          onChange={(e) => setFiles(Array.from(e.target.files))} />
+        <button className="btn" onClick={upload} disabled={!files.length}>Upload &amp; Index</button>
+        {docs.length > 0 && <button className="btn" onClick={clearDocs}>Clear</button>}
+        {status && <p className="status">{status}</p>}
+        <ul>{docs.map((d, i) => <li key={i}>{d.name} — {d.chunks} chunks</li>)}</ul>
       </section>
+
       <section className="result">
-        <h2>Answer</h2>
-        <pre className="answer">{ans || 'No answer yet. Ask a question after ingest completes, or try again.'}</pre>
+        <h2>Answer {provider && <span className="badge">{provider}</span>}</h2>
+        <pre className="answer">{ans || 'No answer yet.'}</pre>
       </section>
       <section className="retrieved">
         <h2>Retrieved Context</h2>
-        {retrieved.map((r,i)=> (
+        {retrieved.map((r, i) => (
           <div key={i} className="chunk">
-            <strong>Chunk {i+1}</strong>
-            <p>{r.slice(0,600)}{r.length>600?'...':''}</p>
+            <strong>{r.source}</strong> <span className="note">score {r.score}</span>
+            <p>{r.text.slice(0, 600)}{r.text.length > 600 ? '...' : ''}</p>
           </div>
         ))}
       </section>
