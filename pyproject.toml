@@ -1,0 +1,8 @@
+[project]
+name = "ragnify"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["fastapi", "pydantic>=2", "python-multipart", "numpy", "faiss-cpu", "requests", "pypdf"]
+
+[tool.vercel]
+entrypoint = "backend.app:app"

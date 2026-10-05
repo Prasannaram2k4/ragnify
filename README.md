@@ -4,7 +4,7 @@ emoji: 📚
 colorFrom: blue
 colorTo: indigo
 sdk: gradio
-app_file: app.py
+app_file: space_app.py
 pinned: false
 ---
 
@@ -198,7 +198,7 @@ docker compose up --build
 
 ## Deploy to Vercel (live demo)
 
-`vercel.json` builds the Vite frontend and serves the FastAPI backend (`api/index.py`) as a serverless function under `/api`.
+`vercel.json` builds the Vite frontend and serves the FastAPI backend (`backend.app:app`, set in `pyproject.toml`) as a serverless function; the frontend builds into `public/`.
 
 - Serverless functions have no persistent disk, so the live demo builds an **in-memory FAISS index** (`IndexFlatIP`, cosine) per request: `/api/upload` returns chunks, the browser keeps them, and `/api/query` embeds, searches with FAISS, and generates the answer. A bundled sample document (`backend/sample_docs/`) works out of the box.
 - The persistent on-disk index (`ingest_and_index.py` → `faiss_index/`) is still used automatically when present (local/Docker); results are merged.

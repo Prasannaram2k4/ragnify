@@ -19,3 +19,6 @@ venv/
 node_modules/
 .env.example.vercel
 .pytest_cache/
+.vercel
+public/
+.vercel
