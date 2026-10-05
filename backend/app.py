@@ -1,10 +1,12 @@
 import logging
 import os
+from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .services.llm_providers import generate, resolve_provider
@@ -96,3 +98,8 @@ def query(req: QueryRequest, ok: bool = Depends(check_api_key)):
 # Served at both /api/* (Vercel) and /* (local dev, tests).
 app.include_router(router)
 app.include_router(router, prefix='/api')
+
+# Built frontend (committed in public/); mounted last so API routes take precedence.
+_public = Path(__file__).resolve().parent.parent / 'public'
+if _public.exists():
+    app.mount('/', StaticFiles(directory=_public, html=True), name='frontend')
