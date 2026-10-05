@@ -10,6 +10,8 @@ pinned: false
 
 # Ragnify — AI Document Q&A System (RAG + Hugging Face + FAISS)
 
+**Live demo:** https://ragnify-ynxamc9yj-prasannaram2k4.vercel.app/
+
 A clean, batteries-included RAG (Retrieval‑Augmented Generation) template:
 - FastAPI backend with swappable LLM providers (Ollama, OpenAI, Anthropic, Hugging Face)
 - FAISS vector index over your PDFs
