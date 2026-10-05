@@ -36,6 +36,14 @@ def call_openai(prompt: str, max_tokens: int = 512) -> str:
                  os.getenv('OPENAI_MODEL', 'gpt-4o-mini'), prompt, max_tokens)
 
 
+def call_openrouter(prompt: str, max_tokens: int = 512) -> str:
+    key = os.getenv('OPENROUTER_API_KEY', '')
+    if not key:
+        raise LLMError('OPENROUTER_API_KEY not configured')
+    return _chat('https://openrouter.ai/api/v1/chat/completions', key,
+                 os.getenv('OPENROUTER_MODEL', 'meta-llama/llama-3.3-70b-instruct:free'), prompt, max_tokens)
+
+
 def call_huggingface(prompt: str, max_tokens: int = 512) -> str:
     key = os.getenv('HF_API_TOKEN', '')
     if not key:
@@ -67,6 +75,8 @@ def resolve_provider() -> str:
     p = os.getenv('LLM_PROVIDER', 'auto').lower()
     if p != 'auto':
         return p
+    if os.getenv('OPENROUTER_API_KEY'):
+        return 'openrouter'
     if os.getenv('OPENAI_API_KEY'):
         return 'openai'
     if os.getenv('ANTHROPIC_API_KEY'):
@@ -92,7 +102,7 @@ def generate(question: str, chunks: List[str]) -> Tuple[str, str]:
     """Return (answer, provider_used); falls back to an extractive answer if the LLM fails."""
     context = '\n\n'.join(f'[{i + 1}] {c}' for i, c in enumerate(chunks))
     prompt = f'Context:\n{context}\n\nQuestion: {question}\nAnswer:'
-    fn = {'openai': call_openai, 'anthropic': call_anthropic,
+    fn = {'openrouter': call_openrouter, 'openai': call_openai, 'anthropic': call_anthropic,
           'huggingface': call_huggingface}.get(resolve_provider())
     if fn:
         try:
